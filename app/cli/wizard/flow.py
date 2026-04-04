@@ -363,7 +363,6 @@ def _configure_grafana() -> tuple[str, str]:
             env_path = sync_env_values(
                 {
                     "GRAFANA_INSTANCE_URL": endpoint,
-                    "GRAFANA_READ_TOKEN": api_key,
                 }
             )
             return "Grafana", str(env_path)
@@ -416,7 +415,7 @@ def _configure_grafana_local() -> tuple[str, str]:
     api_key = ""
     remove_integration("grafana")  # clean up any stale grafana record pointing to localhost
     upsert_integration("grafana_local", {"credentials": {"endpoint": endpoint, "api_key": api_key}})
-    env_path = sync_env_values({"GRAFANA_INSTANCE_URL": endpoint, "GRAFANA_READ_TOKEN": api_key})
+    env_path = sync_env_values({"GRAFANA_INSTANCE_URL": endpoint})
     _console.print("[green]Grafana Local · ready[/]")
     _console.print(f"[dim]UI: {endpoint}[/]")
     _console.print("[dim]Loki seeded with events_fact pipeline failure logs.[/]")
@@ -450,12 +449,7 @@ def _configure_datadog() -> tuple[str, str]:
                 "datadog",
                 {"credentials": {"api_key": api_key, "app_key": app_key, "site": site}},
             )
-            env_path = sync_env_values(
-                {
-                    "DD_API_KEY": api_key,
-                    "DD_APP_KEY": app_key,
-                }
-            )
+            env_path = sync_env_values({})
             return "Datadog", str(env_path)
         _console.print("[dim]Try again or press Ctrl+C to cancel.[/]")
 
@@ -490,7 +484,6 @@ def _configure_honeycomb() -> tuple[str, str]:
             )
             env_path = sync_env_values(
                 {
-                    "HONEYCOMB_API_KEY": api_key,
                     "HONEYCOMB_DATASET": dataset,
                     "HONEYCOMB_API_URL": base_url,
                 }
@@ -543,7 +536,6 @@ def _configure_coralogix() -> tuple[str, str]:
             )
             env_path = sync_env_values(
                 {
-                    "CORALOGIX_API_KEY": api_key,
                     "CORALOGIX_API_URL": base_url,
                     "CORALOGIX_APPLICATION_NAME": application_name,
                     "CORALOGIX_SUBSYSTEM_NAME": subsystem_name,
@@ -565,7 +557,7 @@ def _configure_slack() -> tuple[str, str]:
             result = validate_slack_webhook(webhook_url=webhook_url)
         _render_integration_result("Slack", result)
         if result.ok:
-            env_path = sync_env_values({"SLACK_WEBHOOK_URL": webhook_url})
+            env_path = sync_env_values({})
             return "Slack", str(env_path)
         _console.print("[dim]Try again or press Ctrl+C to cancel.[/]")
 
@@ -655,9 +647,6 @@ def _configure_aws() -> tuple[str, str]:
                 env_path = sync_env_values(
                     {
                         "AWS_REGION": region,
-                        "AWS_ACCESS_KEY_ID": access_key_id,
-                        "AWS_SECRET_ACCESS_KEY": secret_access_key,
-                        "AWS_SESSION_TOKEN": session_token,
                     }
                 )
                 return "AWS", str(env_path)
@@ -745,7 +734,6 @@ def _configure_github_mcp() -> tuple[str, str]:
                     "GITHUB_MCP_MODE": mode,
                     "GITHUB_MCP_COMMAND": command,
                     "GITHUB_MCP_ARGS": " ".join(args),
-                    "GITHUB_MCP_AUTH_TOKEN": auth_token,
                     "GITHUB_MCP_TOOLSETS": ",".join(toolsets),
                 }
             )
@@ -803,7 +791,6 @@ def _configure_sentry() -> tuple[str, str]:
                     "SENTRY_URL": base_url,
                     "SENTRY_ORG_SLUG": organization_slug,
                     "SENTRY_PROJECT_SLUG": project_slug,
-                    "SENTRY_AUTH_TOKEN": auth_token,
                 }
             )
             return "Sentry", str(env_path)

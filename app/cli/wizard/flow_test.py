@@ -178,7 +178,6 @@ def test_run_wizard_configures_optional_integrations(monkeypatch, tmp_path, caps
     assert synced_env_values == [
         {
             "GRAFANA_INSTANCE_URL": "https://grafana.example.com",
-            "GRAFANA_READ_TOKEN": "grafana-token",
         },
     ]
     output = capsys.readouterr().out
@@ -254,7 +253,6 @@ def test_run_wizard_configures_honeycomb(monkeypatch, tmp_path) -> None:
     ]
     assert synced_env_values == [
         {
-            "HONEYCOMB_API_KEY": "hny_test",
             "HONEYCOMB_DATASET": "prod-api",
             "HONEYCOMB_API_URL": "https://api.honeycomb.io",
         }
@@ -335,7 +333,6 @@ def test_run_wizard_configures_coralogix(monkeypatch, tmp_path) -> None:
     ]
     assert synced_env_values == [
         {
-            "CORALOGIX_API_KEY": "cx_test",
             "CORALOGIX_API_URL": "https://api.coralogix.com",
             "CORALOGIX_APPLICATION_NAME": "payments",
             "CORALOGIX_SUBSYSTEM_NAME": "worker",
@@ -436,7 +433,6 @@ def test_run_wizard_configures_github_mcp_and_sentry(monkeypatch, tmp_path, caps
             "GITHUB_MCP_MODE": flow.DEFAULT_GITHUB_MCP_MODE,
             "GITHUB_MCP_COMMAND": "",
             "GITHUB_MCP_ARGS": "",
-            "GITHUB_MCP_AUTH_TOKEN": "ghp_test",
             "GITHUB_MCP_TOOLSETS": "repos,issues,pull_requests,actions",
         },
     ]
