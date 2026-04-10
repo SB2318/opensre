@@ -479,8 +479,7 @@ def test_onboard_interactive_smoke(cli_sandbox: CliSandbox) -> None:
             PtyAction(expect="How do you want to get started?", send=b"\r"),
             PtyAction(expect="Choose your LLM provider", send=b"\r"),
             PtyAction(expect="Anthropic API key", send=b"smoke-test-key\r"),
-            *integration_down,
-            PtyAction(expect="Choose an integration to configure", send=b"\r", timeout=5.0),
+            PtyAction(expect="Choose an integration to configure", send=b"jjjjjjjjjjjjjjj\r"),
         ],
         timeout=30.0,
     )
