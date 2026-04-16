@@ -1,6 +1,8 @@
 import pytest
+
 from app.nodes.investigate.execution.execute_actions import ActionExecutionResult
 from app.nodes.investigate.processing.post_process import merge_evidence
+
 
 @pytest.mark.parametrize(
     "action_name, data, expected_keys",
@@ -69,7 +71,7 @@ def test_merge_evidence_eks_tools(action_name, data, expected_keys):
 
     for key in expected_keys:
         assert key in evidence
-        
+
     # Validate the data content itself
     if action_name == "list_eks_pods":
         assert evidence["eks_pods"][0]["name"] == "fake-pod-1"

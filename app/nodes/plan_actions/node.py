@@ -51,7 +51,7 @@ def node_plan_actions(state: InvestigationState) -> dict:
     planned_actions = typed_plan.actions if typed_plan else []
     plan_rationale = typed_plan.rationale if typed_plan else ""
 
-    # Code-level guard: If the LLM returns an empty plan for a healthy/informational alert,
+    # Code-level guard: If the LLM returns an empty plan (e.g. for a healthy/informational alert),
     # forcibly seed a verification action to prevent infinite looping on insufficient evidence.
     if not planned_actions and available_action_names:
         fallback_candidates = [
@@ -59,6 +59,8 @@ def node_plan_actions(state: InvestigationState) -> dict:
             "query_grafana_logs",
             "query_datadog_all",
             "query_datadog_logs",
+            "query_honeycomb_traces",
+            "query_coralogix_logs",
             "get_cloudwatch_logs",
             "get_host_metrics",
             "list_eks_pods",
