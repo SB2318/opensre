@@ -5,12 +5,15 @@
 and extract their parameters.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
 from app.services.coralogix import build_coralogix_logs_query
 from app.tools.GrafanaLogsTool import _map_pipeline_to_service_name
+
+logger = logging.getLogger(__name__)
 
 
 def _alert_time_range_minutes(raw_alert: dict[str, Any]) -> int:
@@ -384,11 +387,49 @@ def detect_sources(
     grafana_int = None
     grafana_local = False
     if resolved_integrations:
-        if resolved_integrations.get("grafana_local"):
-            grafana_int = resolved_integrations["grafana_local"]
-            grafana_local = True
-        elif resolved_integrations.get("grafana"):
-            grafana_int = resolved_integrations["grafana"]
+        # Multi-instance support: an alert may carry a ``grafana_instance`` hint
+        # naming a specific configured instance (e.g. ``"prod"``, ``"staging"``).
+        # When the hint matches, select that instance; otherwise fall back to
+        # the default (first) instance. See app/integrations/selectors.py.
+        grafana_hint: str | None = None
+        if isinstance(raw_alert, dict):
+            hint_candidate = raw_alert.get("grafana_instance")
+            if not hint_candidate:
+                nested = raw_alert.get("annotations")
+                if isinstance(nested, dict):
+                    hint_candidate = nested.get("grafana_instance")
+            if hint_candidate:
+                grafana_hint = str(hint_candidate).strip().lower() or None
+
+        if grafana_hint:
+            from app.integrations.selectors import get_instance_by_name
+
+            selected = get_instance_by_name(resolved_integrations, "grafana", grafana_hint)
+            if selected is not None:
+                grafana_int = selected
+                # The classifier strips api_key to "" for local grafana and
+                # rejects cloud grafana with an empty api_key, so an empty
+                # api_key in a classified instance uniquely identifies a
+                # local instance. Mirror the local flag so downstream gating
+                # (loki_only, anonymous-auth acceptance) works the same as
+                # the non-hint fallback path.
+                if not selected.get("api_key"):
+                    grafana_local = True
+            else:
+                # A hint that does not resolve is almost always a typo or a
+                # removed instance — warn so operators notice instead of
+                # silently querying the wrong Grafana.
+                logger.warning(
+                    "grafana_instance hint %r not found; falling back to default instance",
+                    grafana_hint,
+                )
+
+        if grafana_int is None:
+            if resolved_integrations.get("grafana_local"):
+                grafana_int = resolved_integrations["grafana_local"]
+                grafana_local = True
+            elif resolved_integrations.get("grafana"):
+                grafana_int = resolved_integrations["grafana"]
 
     # When a _backend is injected we allow any alert_source; otherwise restrict to Grafana/unknown.
     _has_injected_backend = bool(grafana_int and "_backend" in grafana_int)
