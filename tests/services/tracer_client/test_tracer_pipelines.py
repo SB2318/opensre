@@ -17,9 +17,12 @@ class _FakePipelinesClient(TracerPipelinesMixin):
     """Fake subclass for testing; stubs _get() method."""
 
     def __init__(self, response: dict[str, Any]) -> None:
+        super().__init__(
+            base_url="https://opensre.com",
+            org_id="test-org-123",
+            jwt_token="token",
+        )
         self._response = response
-        self.org_id = "test-org-123"
-        self.base_url = "https://test.tracer.com"
 
     def _get(self, _endpoint: str, _params: Mapping[str, Any] | None = None) -> dict[str, Any]:
         """Stub _get to return the configured response."""
@@ -30,8 +33,11 @@ class _FakePipelinesClientWithCapture(TracerPipelinesMixin):
     """Fake subclass that captures params passed to _get()."""
 
     def __init__(self) -> None:
-        self.org_id = "test-org-123"
-        self.base_url = "https://test.tracer.com"
+        super().__init__(
+            base_url="https://opensre.com",
+            org_id="test-org-123",
+            jwt_token="token",
+        )
         self.last_params: Mapping[str, Any] | None = None
         self.last_endpoint: str | None = None
 
@@ -390,8 +396,11 @@ class TestGetLatestRun:
     def test_get_latest_run_max_ram_conversion(self) -> None:
         class _FakePipelinesClientRam(TracerPipelinesMixin):
             def __init__(self, max_ram_bytes: int) -> None:
-                self.org_id = "test-org-123"
-                self.base_url = "https://test.tracer.com"
+                super().__init__(
+                    base_url="https://opensre.test",
+                    org_id="test-org-123",
+                    jwt_token="token",
+                )
                 self._max_ram = max_ram_bytes
 
             def _get(
