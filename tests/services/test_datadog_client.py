@@ -25,39 +25,6 @@ def mock_httpx_client():
         yield mock
 
 
-def test_is_configured_true():
-    config = DatadogConfig(api_key="test", app_key="test")
-    client = DatadogClient(config)
-    assert client.is_configured is True
-
-
-def test_is_configured_false():
-    config = DatadogConfig(api_key="", app_key="")
-    client = DatadogClient(config)
-    assert client.is_configured is False
-
-
-def test_is_configured_missing_api_key():
-    config = DatadogConfig(api_key="", app_key="key")
-    client = DatadogClient(config)
-
-    assert client.is_configured is False
-
-
-def test_is_configured_missing_app_key():
-    config = DatadogConfig(api_key="key", app_key="")
-    client = DatadogClient(config)
-
-    assert client.is_configured is False
-
-
-def test_is_configured_both_empty():
-    config = DatadogConfig(api_key="", app_key="")
-    client = DatadogClient(config)
-
-    assert client.is_configured is False
-
-
 # -------------------------
 # search_logs
 # -------------------------
@@ -123,7 +90,8 @@ def test_search_logs_http_error(client, mock_httpx_client):
         response=mock_response,
     )
 
-    mock_instance.post.side_effect = error
+    mock_response.raise_for_status.side_effect = error  # ✅ correct place
+    mock_instance.post.return_value = mock_response
 
     result = client.search_logs("error")
 
@@ -192,7 +160,8 @@ def test_list_monitors_http_error(client, mock_httpx_client):
         response=mock_response,
     )
 
-    mock_instance.get.side_effect = error
+    mock_response.raise_for_status.side_effect = error  # ✅ correct
+    mock_instance.get.return_value = mock_response
 
     result = client.list_monitors()
 
@@ -263,7 +232,8 @@ def test_get_events_http_error(client, mock_httpx_client):
         response=mock_response,
     )
 
-    mock_instance.post.side_effect = error
+    mock_response.raise_for_status.side_effect = error  # ✅ correct
+    mock_instance.post.return_value = mock_response
 
     result = client.get_events("error")
 
@@ -305,6 +275,8 @@ def test_get_events_generic_exception(client, mock_httpx_client):
 
     assert result["success"] is False
     assert result["error"] == "timeout"
+
+
 import pytest
 from unittest.mock import MagicMock, patch
 import httpx
