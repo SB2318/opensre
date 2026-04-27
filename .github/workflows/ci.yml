@@ -107,7 +107,7 @@ jobs:
 # ---------------------------------------------------------------
   test:
     name: test (${{ matrix.os }})
-    needs: [quality, typecheck]
+    needs: [quality]
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
@@ -314,6 +314,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+      
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -329,6 +330,37 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -e ".[dev]"
 
+       # ---------------- SAFE MODE (missing secrets) ----------------
+      - name: Skip E2E (missing required secrets)
+        if: ${{ secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '' || secrets.ANTHROPIC_API_KEY == '' }}
+        run: |
+         echo "Skipping E2E tests due to missing required secrets"
+         
+
+      - name: Configure AWS credentials
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+
+      - name: Verify AWS authentication
+        run: |
+          set -e
+          aws sts get-caller-identity
+      
+      - name: Validate required runtime secrets
+        run: |
+         if [ -z "$ANTHROPIC_API_KEY" ]; then
+          echo "Missing ANTHROPIC_API_KEY"
+          exit 1
+         fi
+
+      - name: Validate CloudWatch access (safe)
+        run: aws logs describe-log-groups --limit 1 || true
+
 
       - name: Initialize tracer (optional)
         run: |
@@ -336,14 +368,10 @@ jobs:
         continue-on-error: true
         timeout-minutes: 2
 
-      # ---------------- SAFE MODE (missing secrets) ----------------
-      - name: Skip E2E (missing AWS secrets)
-        if: env.AWS_ACCESS_KEY_ID == '' || env.AWS_SECRET_ACCESS_KEY == ''
-        run: echo "Skipping E2E tests due to missing AWS credentials"
 
       # ---------------- FULL MODE ----------------
       - name: Run test
-        if: env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.ANTHROPIC_API_KEY != '' }}
         run: ${{ matrix.command }}       
         timeout-minutes: 30
         
