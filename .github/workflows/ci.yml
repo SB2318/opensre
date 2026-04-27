@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && fromJSON('["ubuntu-latest","windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
+        os: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == 'true') && fromJSON('["ubuntu-latest","windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && fromJSON('["ubuntu-latest","windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
+        os: ${{ github.event_name == 'push' || ( github.event_name == 'workflow_dispatch' && inputs.full_matrix == 'true')  && fromJSON('["ubuntu-latest","windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 27
@@ -116,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && fromJSON('["ubuntu-latest","windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
+        os: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == 'true') && fromJSON('["ubuntu-latest","windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
@@ -307,13 +307,23 @@ jobs:
       
       - name: Validate required runtime secrets
         run: |
-         if [ -z "$ANTHROPIC_API_KEY" ]; then
-          echo "Missing ANTHROPIC_API_KEY"
-          exit 1
+         set -e
+         missing=0
+
+         for var in ANTHROPIC_API_KEY JWT_TOKEN AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+          if [ -z "${!var}" ]; then
+           echo "❌ Missing required secret: $var"
+           missing=1
+         fi
+         done
+
+         if [ "$missing" -ne 0 ]; then
+         echo "One or more required secrets are missing. Failing early."
+         exit 1
          fi
 
       - name: Validate CloudWatch access (safe)
-        run: aws logs describe-log-groups --limit 1 || true
+        run: aws logs describe-log-groups --limit 1 
 
       # ---------------- TRACER ----------------
 
