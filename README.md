@@ -937,6 +937,13 @@ Thanks goes to these amazing people:
             <sub><b>Piyushtiwari919</b></sub>
         </a>
     </td>
+            <td align="center">
+        <a href="https://github.com/hruico">
+            <img src="https://avatars.githubusercontent.com/u/218068869?v=4" width="100" alt="hruico"/>
+            <br />
+            <sub><b>hruico</b></sub>
+        </a>
+    </td>
 		</tr>
 	</tbody>
 </table>
