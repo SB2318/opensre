@@ -66,6 +66,7 @@ jobs:
       - name: Format check
         run: python -m ruff format --check app/ tests/
 
+
 # ---------------------------------------------------------------
 # TYPECHECK
 # ---------------------------------------------------------------
@@ -99,6 +100,7 @@ jobs:
 
       - name: Typecheck
         run: python -m mypy app/
+
 
 # ---------------------------------------------------------------
 # TESTS (MAIN CI GATE)
@@ -151,13 +153,47 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -e ".[dev]"
 
+      # ---------------- AWS AUTH FIX ----------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          mask-aws-account-id: true
+
+      - name: Verify AWS authentication
+        run: |
+          set -e
+          aws sts get-caller-identity
+      
+      - name: Validate required runtime secrets
+        run: |
+         if [ -z "$ANTHROPIC_API_KEY" ]; then
+          echo "Missing ANTHROPIC_API_KEY"
+          exit 1
+         fi
+
+      - name: Validate CloudWatch access (safe)
+        run: aws logs describe-log-groups --limit 1 || true
+
+      # ---------------- TRACER ----------------
+      - name: Install tracer CLI
+        run: |
+          curl -sSL https://install.tracer.cloud | CLI_BRANCH=dev sh -s user_36fbN6K6FwEgJFHsQv1pUByo8K6
+
+      - name: Init tracer
+        run: sudo tracer init --token ${{ secrets.JWT_TOKEN }}
+        continue-on-error: true
+
+      # ---------------- TESTS ----------------
       - name: Run safe tests (fork PRs)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
-        run: >-
-          python -m pytest -n auto -v
-          --ignore=tests/e2e
-          --ignore=tests/synthetic
-          -m "not synthetic"
+        run: |
+          python -m pytest -n auto -v \
+            --ignore=tests/e2e \
+            --ignore=tests/synthetic \
+            -m "not synthetic"
 
       - name: Run full tests
         if: (github.repository == 'Tracer-Cloud/opensre') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
@@ -185,7 +221,7 @@ jobs:
 # ---------------------------------------------------------------
   test-kubernetes:
     runs-on: ubuntu-latest
-    needs: [quality, typecheck]
+    needs: [quality]
     continue-on-error: true
     timeout-minutes: 25
 
@@ -223,6 +259,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: python -m tests.e2e.kubernetes.test_local
+
 
 # ---------------------------------------------------------------
 # THOROUGH E2E (MAIN ONLY)
@@ -292,9 +329,6 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -e ".[dev]"
 
-      - name: Install tracer CLI
-        run: |
-          curl -sSL https://install.tracer.cloud | CLI_BRANCH=dev sh -s user_36fbN6K6FwEgJFHsQv1pUByo8K6
 
       - name: Initialize tracer (optional)
         run: |
@@ -310,6 +344,6 @@ jobs:
       # ---------------- FULL MODE ----------------
       - name: Run test
         if: env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
-        run: ${{ matrix.command }}
+        run: ${{ matrix.command }}       
         timeout-minutes: 30
         
