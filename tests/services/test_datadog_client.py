@@ -22,7 +22,7 @@ def async_config(config):
         api_key=config.api_key,
         app_key=config.app_key,
         site=config.site,
-        timeout=10,
+        
     )
 
 
