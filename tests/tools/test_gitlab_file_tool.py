@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 import base64
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 from app.tools.GitLabFileTool import get_gitlab_file_contents
 from tests.tools.conftest import BaseToolContract, mock_agent_state
 
 
+def _registered_tool() -> Any:
+    return cast(Any, get_gitlab_file_contents).__opensre_registered_tool__
+
+
 class TestGitLabFileToolContract(BaseToolContract):
     def get_tool_under_test(self):
-        return get_gitlab_file_contents.__opensre_registered_tool__
+        return _registered_tool()
 
 
 def test_is_available_requires_connection_project_id_and_file_path() -> None:
-    rt = get_gitlab_file_contents.__opensre_registered_tool__
+    rt = _registered_tool()
     assert (
         rt.is_available(
             {
@@ -37,7 +42,7 @@ def test_is_available_requires_connection_project_id_and_file_path() -> None:
 
 
 def test_extract_params_maps_fields() -> None:
-    rt = get_gitlab_file_contents.__opensre_registered_tool__
+    rt = _registered_tool()
     sources = mock_agent_state(
         {
             "gitlab": {
@@ -59,7 +64,7 @@ def test_extract_params_maps_fields() -> None:
 
 
 def test_extract_params_defaults_ref_to_main() -> None:
-    rt = get_gitlab_file_contents.__opensre_registered_tool__
+    rt = _registered_tool()
     sources = mock_agent_state(
         {"gitlab": {"connection_verified": True, "project_id": "42", "file_path": "src/main.py"}}
     )
@@ -70,9 +75,12 @@ def test_extract_params_defaults_ref_to_main() -> None:
 def test_run_returns_unavailable_when_config_missing() -> None:
     with patch("app.tools.GitLabFileTool._resolve_config", return_value=None):
         result = get_gitlab_file_contents(project_id="42", file_path="src/main.py")
-    assert result["available"] is False
-    assert "not configured" in result["error"]
-    assert result["file"] == {}
+    assert result == {
+        "source": "gitlab",
+        "available": False,
+        "error": "gitlab integration is not configured.",
+        "file": {},
+    }
 
 
 def test_run_happy_path_decodes_base64_content() -> None:
