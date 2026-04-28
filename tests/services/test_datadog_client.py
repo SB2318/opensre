@@ -1,11 +1,10 @@
 import inspect
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from app.services.datadog.client import DatadogClient, DatadogConfig
-
 
 # -------------------------
 # Fixtures

@@ -5,7 +5,6 @@ import pytest
 
 from app.services.datadog.client import DatadogAsyncClient, DatadogConfig
 
-
 # -------------------------
 # fixtures
 # -------------------------
