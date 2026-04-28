@@ -1,3 +1,5 @@
+import asyncio
+import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -298,29 +300,39 @@ def test_get_events_generic_exception(client, mock_httpx_client):
     assert result["error"] == "timeout"
 
 
-@pytest.mark.asyncio
-async def test_fetch_all_success_strong(
-    async_client,
-    mock_async_httpx,
-):
-    mock_instance = MagicMock()
-    mock_async_httpx.return_value = mock_instance
+# -------------------------
+# async tests
+# -------------------------
 
-    # -------------------------
-    # Fake API responses FIRST
-    # -------------------------
+
+def test_fetch_all_signature_contract():
+    sig = inspect.signature(DatadogAsyncClient.fetch_all)
+
+    assert "logs_query" in sig.parameters
+    assert "time_range_minutes" in sig.parameters
+    assert "logs_limit" in sig.parameters
+    assert "monitor_query" in sig.parameters
+    assert "events_query" in sig.parameters
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_requires_logs_query(async_client):
+    with pytest.raises(TypeError):
+        await async_client.fetch_all(
+            time_range_minutes=15,
+            logs_limit=100,
+            monitor_query="error",
+            events_query="error",
+        )
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_success_strong(async_client, mock_async_httpx):
+    mock_instance = MagicMock()
+    mock_async_httpx.return_value.__aenter__.return_value = mock_instance
 
     log_response = MagicMock()
-    log_response.json.return_value = {
-        "data": [
-            {
-                "attributes": {
-                    "message": "log message",
-                    "status": "info",
-                }
-            }
-        ]
-    }
+    log_response.json.return_value = {"data": [{"attributes": {"message": "log message"}}]}
     log_response.raise_for_status.return_value = None
 
     monitor_response = MagicMock()
@@ -331,40 +343,49 @@ async def test_fetch_all_success_strong(
     event_response.json.return_value = {"data": [{"attributes": {"title": "event title"}}]}
     event_response.raise_for_status.return_value = None
 
-    # -------------------------
-    # Proper AsyncMock setup
-    # -------------------------
-
-    mock_instance.post = AsyncMock(return_value=log_response)
-    mock_instance.get = AsyncMock(
-        side_effect=[
-            monitor_response,
-            event_response,
-        ]
-    )
-
-    # -------------------------
-    # Execute
-    # -------------------------
+    mock_instance.post = AsyncMock(side_effect=[log_response, event_response])
+    mock_instance.get = AsyncMock(return_value=monitor_response)
 
     result = await async_client.fetch_all(
+        logs_query="error",
         time_range_minutes=15,
         logs_limit=100,
         monitor_query="error",
         events_query="error",
     )
 
-    # -------------------------
-    # Assertions (strong)
-    # -------------------------
+    assert "logs" in result
+    assert "monitors" in result
+    assert "events" in result
 
-    assert isinstance(result, dict)
+    assert result["logs"]["success"] is True
+    assert result["monitors"]["success"] is True
+    assert result["events"]["success"] is True
+
+    # ---- content sanity checks (recommended) ----
+    assert "logs" in result["logs"]
+    assert "monitors" in result["monitors"]
+    assert "events" in result["events"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_calls_sources(async_client, mock_async_httpx):
+    mock_instance = MagicMock()
+    mock_async_httpx.return_value.__aenter__.return_value = mock_instance
+
+    mock_instance.post = AsyncMock(return_value=MagicMock())
+    mock_instance.get = AsyncMock(return_value=MagicMock())
+
+    await async_client.fetch_all(
+        logs_query="error",
+        time_range_minutes=15,
+        logs_limit=100,
+        monitor_query="error",
+        events_query="error",
+    )
 
     assert mock_instance.post.called
     assert mock_instance.get.called
-
-    # stronger validation
-    assert len(mock_instance.get.call_args_list) == 2
 
 
 # -------------------------
