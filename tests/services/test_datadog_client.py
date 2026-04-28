@@ -8,7 +8,7 @@ from app.services.datadog.client import DatadogAsyncClient, DatadogClient, Datad
 
 
 @pytest.fixture
-def async_config():
+def config():
     return DatadogConfig(
         api_key="test-api-key",
         app_key="test-app-key",
@@ -17,11 +17,12 @@ def async_config():
 
 
 @pytest.fixture
-def config():
+def async_config(config):
     return DatadogConfig(
-        api_key="test-api-key",
-        app_key="test-app-key",
-        site="datadoghq.com",
+        api_key=config.api_key,
+        app_key=config.app_key,
+        site=config.site,
+        timeout=10,
     )
 
 
@@ -330,6 +331,7 @@ async def test_fetch_all_success_strong(async_client, mock_async_httpx):
     mock_instance = MagicMock()
     mock_async_httpx.return_value.__aenter__.return_value = mock_instance
 
+    # --- Mock responses ---
     log_response = MagicMock()
     log_response.json.return_value = {"data": [{"attributes": {"message": "log message"}}]}
     log_response.raise_for_status.return_value = None
@@ -342,8 +344,48 @@ async def test_fetch_all_success_strong(async_client, mock_async_httpx):
     event_response.json.return_value = {"data": [{"attributes": {"title": "event title"}}]}
     event_response.raise_for_status.return_value = None
 
-    mock_instance.post = AsyncMock(side_effect=[log_response, event_response])
+    # --- Safer routing instead of relying on call order ---
+    async def post_router(url, *args, **kwargs):
+        if "logs" in url:
+            return log_response
+        elif "events" in url:
+            return event_response
+        raise AssertionError(f"Unexpected POST url: {url}")
+
+    mock_instance.post = AsyncMock(side_effect=post_router)
     mock_instance.get = AsyncMock(return_value=monitor_response)
+
+    # --- Execute ---
+    result = await async_client.fetch_all(
+        logs_query="error",
+        time_range_minutes=15,
+        logs_limit=100,
+        monitor_query="error",
+        events_query="error",
+    )
+
+    # --- Assertions ---
+    assert "logs" in result
+    assert "monitors" in result
+    assert "events" in result
+
+    assert mock_instance.post.call_count == 2  # logs + events
+    assert mock_instance.get.call_count == 1  # monitors
+
+    assert mock_instance.post.called
+    assert mock_instance.get.called
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_partial_failure(async_client, mock_async_httpx):
+    mock_instance = MagicMock()
+    mock_async_httpx.return_value.__aenter__.return_value = mock_instance
+
+    async def post_router(url, *args, **kwargs):
+        raise Exception("boom")
+
+    mock_instance.post = AsyncMock(side_effect=post_router)
+    mock_instance.get = AsyncMock(side_effect=Exception("boom"))
 
     result = await async_client.fetch_all(
         logs_query="error",
@@ -353,18 +395,9 @@ async def test_fetch_all_success_strong(async_client, mock_async_httpx):
         events_query="error",
     )
 
-    assert "logs" in result
-    assert "monitors" in result
-    assert "events" in result
-
-    assert mock_instance.post.call_count == 2  # logs + events
-    assert mock_instance.get.call_count == 1   # monitors
-        monitor_query="error",
-        events_query="error",
-    )
-
-    assert mock_instance.post.called
-    assert mock_instance.get.called
+    assert result["logs"]["success"] is False
+    assert result["monitors"]["success"] is False
+    assert result["events"]["success"] is False
 
 
 # -------------------------
@@ -477,3 +510,17 @@ def test_get_pods_on_node_failure(client):
     assert result["success"] is False
     assert result["pods"] == []
     assert result["error"] == "datadog failure"
+
+
+def test_get_pods_on_node_missing_tags(client):
+    client.search_logs = MagicMock(
+        return_value={
+            "success": True,
+            "logs": [{}],  # no tags
+        }
+    )
+
+    result = client.get_pods_on_node("10.0.0.1")
+
+    assert result["success"] is True
+    assert result["pods"] == []
