@@ -25,18 +25,12 @@ templates: list[str] = [
         f"💜 **Thank you @{contributor}.** Another contribution landed — "
         "maintainers and users appreciate it."
     ),
-    (
-        f"🎊 **Merged.** @{contributor}, nice work sticking through review; "
-        "glad this is on main."
-    ),
+    (f"🎊 **Merged.** @{contributor}, nice work sticking through review; glad this is on main."),
     (
         f"👏 **Thanks @{contributor}!** Your PR merged — documentation, fixes, "
         "and features all count."
     ),
-    (
-        f"✅ **On main.** @{contributor}, appreciated — every merged PR moves "
-        "the project forward."
-    ),
+    (f"✅ **On main.** @{contributor}, appreciated — every merged PR moves the project forward."),
 ]
 
 gif_blocks: list[str] = [
