@@ -345,15 +345,23 @@ async def test_fetch_all_success_strong(async_client, mock_async_httpx):
     event_response.raise_for_status.return_value = None
 
     # --- Safer routing instead of relying on call order ---
-    async def post_router(url, *args, **kwargs):
+    async def post_router(*args, **kwargs):
+        url = ""
+
+        if args:
+           url = args[0]
+        elif "url" in kwargs:
+           url = kwargs["url"]
+
         if "logs" in url:
-            return log_response
+           return log_response
         elif "events" in url:
-            return event_response
+           return event_response
+
         raise AssertionError(f"Unexpected POST url: {url}")
 
-    mock_instance.post = AsyncMock(side_effect=post_router)
-    mock_instance.get = AsyncMock(return_value=monitor_response)
+        mock_instance.post = AsyncMock(side_effect=post_router)
+        mock_instance.get = AsyncMock(return_value=monitor_response)
 
     # --- Execute ---
     result = await async_client.fetch_all(
