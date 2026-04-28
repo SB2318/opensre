@@ -9,10 +9,7 @@ discord = os.environ["DISCORD_INVITE_URL"]
 contributor = os.environ["CONTRIBUTOR_LOGIN"]
 
 templates: list[str] = [
-    (
-        f"🎉 **MERGED!** @{contributor} just shipped something. "
-        "The diff gods are pleased. 🙌"
-    ),
+    (f"🎉 **MERGED!** @{contributor} just shipped something. The diff gods are pleased. 🙌"),
     (
         f"🚀 **Houston, we have a merge.** @{contributor} your PR is in orbit. "
         "Thanks for launching this one!"
@@ -26,7 +23,7 @@ templates: list[str] = [
         "survived CI, and shipped. Respect. 🤝"
     ),
     (
-        f"🔥 **Another one.** @{contributor} said \"here's a PR\" and maintainers said "
+        f'🔥 **Another one.** @{contributor} said "here\'s a PR" and maintainers said '
         "\"ship it\". That's how it's done."
     ),
     (

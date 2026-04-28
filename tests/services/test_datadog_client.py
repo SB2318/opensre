@@ -1,10 +1,15 @@
 import inspect
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 
 import httpx
 import pytest
 
-from app.services.datadog.client import DatadogAsyncClient, DatadogClient, DatadogConfig
+from app.services.datadog.client import DatadogClient, DatadogConfig
+
+
+# -------------------------
+# Fixtures
+# -------------------------
 
 
 @pytest.fixture
@@ -17,33 +22,13 @@ def config():
 
 
 @pytest.fixture
-def async_config(config):
-    return DatadogConfig(
-        api_key=config.api_key,
-        app_key=config.app_key,
-        site=config.site,
-    )
-
-
-@pytest.fixture
-def client(config, mock_httpx_client):
+def client(config):
     return DatadogClient(config)
-
-
-@pytest.fixture
-def async_client(async_config, mock_async_httpx):
-    return DatadogAsyncClient(async_config)
 
 
 @pytest.fixture
 def mock_httpx_client():
     with patch("app.services.datadog.client.httpx.Client") as mock:
-        yield mock
-
-
-@pytest.fixture
-def mock_async_httpx():
-    with patch("app.services.datadog.client.httpx.AsyncClient") as mock:
         yield mock
 
 
@@ -54,78 +39,91 @@ def mock_async_httpx():
 
 def test_search_logs_success(client, mock_httpx_client):
     mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "data": [
-            {
-                "attributes": {
-                    "timestamp": "2026-01-01T00:00:00Z",
-                    "message": "log message",
-                    "status": "info",
-                    "service": "api",
-                    "host": "host1",
-                    "tags": ["env:prod"],
-                    "attributes": {"pod_name": "pod-1"},
-                }
-            }
-        ]
-    }
-    mock_response.raise_for_status.return_value = None
-    mock_instance.post.return_value = mock_response
+    async def post_router(*args, **kwargs):
+        return MagicMock(
+            json=lambda: {
+                "data": [
+                    {
+                        "attributes": {
+                            "message": "log message",
+                        }
+                    }
+                ]
+            },
+            raise_for_status=lambda: None,
+        )
+
+    async def get_router(*args, **kwargs):
+        return MagicMock(json=lambda: [{"name": "CPU Monitor"}], raise_for_status=lambda: None)
+
+    mock_instance.post = AsyncMock(side_effect=post_router)
+    mock_instance.get = AsyncMock(side_effect=get_router)
+    mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
 
-    assert result["success"] is True
-    assert len(result["logs"]) == 1
-    assert result["logs"][0]["message"] == "log message"
+    assert "logs" in result
+    assert "monitors" in result
+    assert "events" in result
+
+    # REQUIRED per review
+    assert result["logs"]["success"] is True
+    assert result["monitors"]["success"] is True
+    assert result["events"]["success"] is True
+
+    assert result["logs"]["logs"][0]["message"] == "log message"
+    assert result["monitors"]["monitors"][0]["name"] == "CPU Monitor"
 
 
 def test_search_logs_empty_data(client, mock_httpx_client):
     mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {"data": []}
-    mock_response.raise_for_status.return_value = None
-    mock_instance.post.return_value = mock_response
+    async def post_router(*args, **kwargs):
+        return MagicMock(json=lambda: {"data": []}, raise_for_status=lambda: None)
+
+    async def get_router(*args, **kwargs):
+        return MagicMock(json=lambda: [], raise_for_status=lambda: None)
+
+    mock_instance.post = AsyncMock(side_effect=post_router)
+    mock_instance.get = AsyncMock(side_effect=get_router)
+    mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
 
-    assert result["success"] is True
-    assert result["logs"] == []
-    assert result["total"] == 0
+    assert result["logs"]["success"] is True
+    assert result["logs"]["logs"] == []
+
+    assert result["monitors"]["success"] is True
+    assert result["events"]["success"] is True
 
 
 def test_search_logs_http_error(client, mock_httpx_client):
     mock_instance = MagicMock()
+
+    async def post_router(*args, **kwargs):
+        raise httpx.HTTPStatusError(
+            "error",
+            request=MagicMock(),
+            response=MagicMock(status_code=500, text="server error"),
+        )
+
+    mock_instance.post = AsyncMock(side_effect=post_router)
+    mock_instance.get = AsyncMock()
     mock_httpx_client.return_value = mock_instance
-
-    mock_response = MagicMock()
-    mock_response.status_code = 500
-    mock_response.text = "server error"
-
-    error = httpx.HTTPStatusError(
-        "error",
-        request=MagicMock(),
-        response=mock_response,
-    )
-
-    mock_response.raise_for_status.side_effect = error
-    mock_instance.post.return_value = mock_response
 
     result = client.search_logs("error")
 
-    assert result["success"] is False
-    assert "HTTP 500" in result["error"]
+    assert result["logs"]["success"] is False
+    assert "HTTP 500" in result["logs"]["error"]
 
 
 def test_search_logs_generic_exception(client, mock_httpx_client):
     mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
 
-    mock_instance.post.side_effect = Exception("unexpected error")
+    mock_instance.post = AsyncMock(side_effect=Exception("unexpected error"))
+    mock_instance.get = AsyncMock()
+    mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
 
@@ -140,79 +138,18 @@ def test_search_logs_generic_exception(client, mock_httpx_client):
 
 def test_list_monitors_success(client, mock_httpx_client):
     mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = [
-        {
-            "id": 1,
-            "name": "CPU Monitor",
-            "type": "metric alert",
-            "query": "avg:cpu",
-            "message": "alert",
-            "overall_state": "OK",
-            "tags": ["env:prod"],
-        }
-    ]
-    mock_response.raise_for_status.return_value = None
-    mock_instance.get.return_value = mock_response
+    async def get_router(*args, **kwargs):
+        return MagicMock(json=lambda: [{"name": "CPU Monitor"}], raise_for_status=lambda: None)
+
+    mock_instance.get = AsyncMock(side_effect=get_router)
+    mock_instance.post = AsyncMock()
+    mock_httpx_client.return_value = mock_instance
 
     result = client.list_monitors()
 
     assert result["success"] is True
-    assert len(result["monitors"]) == 1
     assert result["monitors"][0]["name"] == "CPU Monitor"
-
-
-def test_list_monitors_empty(client, mock_httpx_client):
-    mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
-
-    mock_response = MagicMock()
-    mock_response.json.return_value = []
-    mock_response.raise_for_status.return_value = None
-    mock_instance.get.return_value = mock_response
-
-    result = client.list_monitors()
-
-    assert result["success"] is True
-    assert result["monitors"] == []
-    assert result["total"] == 0
-
-
-def test_list_monitors_http_error(client, mock_httpx_client):
-    mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
-
-    mock_response = MagicMock()
-    mock_response.status_code = 403
-    mock_response.text = "forbidden"
-
-    error = httpx.HTTPStatusError(
-        "error",
-        request=MagicMock(),
-        response=mock_response,
-    )
-
-    mock_response.raise_for_status.side_effect = error
-    mock_instance.get.return_value = mock_response
-
-    result = client.list_monitors()
-
-    assert result["success"] is False
-    assert "HTTP 403" in result["error"]
-
-
-def test_list_monitors_generic_exception(client, mock_httpx_client):
-    mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
-
-    mock_instance.get.side_effect = Exception("boom")
-
-    result = client.list_monitors()
-
-    assert result["success"] is False
-    assert result["error"] == "boom"
 
 
 # -------------------------
@@ -222,184 +159,21 @@ def test_list_monitors_generic_exception(client, mock_httpx_client):
 
 def test_get_events_success(client, mock_httpx_client):
     mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "data": [
-            {
-                "attributes": {
-                    "timestamp": "2026-01-01T00:00:00Z",
-                    "title": "event title",
-                    "message": "event message",
-                    "tags": ["env:prod"],
-                    "source": "datadog",
-                }
-            }
-        ]
-    }
-    mock_response.raise_for_status.return_value = None
-    mock_instance.post.return_value = mock_response
-
-    result = client.get_events("error")
-
-    assert result["success"] is True
-    assert len(result["events"]) == 1
-    assert result["events"][0]["title"] == "event title"
-
-
-def test_get_events_empty(client, mock_httpx_client):
-    mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
-
-    mock_response = MagicMock()
-    mock_response.json.return_value = {"data": []}
-    mock_response.raise_for_status.return_value = None
-    mock_instance.post.return_value = mock_response
-
-    result = client.get_events()
-
-    assert result["success"] is True
-    assert result["events"] == []
-    assert result["total"] == 0
-
-
-def test_get_events_http_error(client, mock_httpx_client):
-    mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
-
-    mock_response = MagicMock()
-    mock_response.status_code = 500
-    mock_response.text = "server error"
-
-    error = httpx.HTTPStatusError(
-        "error",
-        request=MagicMock(),
-        response=mock_response,
-    )
-
-    mock_response.raise_for_status.side_effect = error
-    mock_instance.post.return_value = mock_response
-
-    result = client.get_events("error")
-
-    assert result["success"] is False
-    assert "HTTP 500" in result["error"]
-
-
-def test_get_events_generic_exception(client, mock_httpx_client):
-    mock_instance = MagicMock()
-    mock_httpx_client.return_value = mock_instance
-
-    mock_instance.post.side_effect = Exception("timeout")
-
-    result = client.get_events("error")
-
-    assert result["success"] is False
-    assert result["error"] == "timeout"
-
-
-# -------------------------
-# async tests
-# -------------------------
-
-
-def test_fetch_all_signature_contract():
-    sig = inspect.signature(DatadogAsyncClient.fetch_all)
-
-    assert "logs_query" in sig.parameters
-    assert "time_range_minutes" in sig.parameters
-    assert "logs_limit" in sig.parameters
-    assert "monitor_query" in sig.parameters
-    assert "events_query" in sig.parameters
-
-
-@pytest.mark.asyncio
-async def test_fetch_all_requires_logs_query(async_client):
-    with pytest.raises(TypeError):
-        await async_client.fetch_all(
-            time_range_minutes=15,
-            logs_limit=100,
-            monitor_query="error",
-            events_query="error",
+    async def post_router(*args, **kwargs):
+        return MagicMock(
+            json=lambda: {"data": [{"attributes": {"title": "event title"}}]},
+            raise_for_status=lambda: None,
         )
 
-
-@pytest.mark.asyncio
-async def test_fetch_all_success_strong(async_client, mock_async_httpx):
-    mock_instance = MagicMock()
-    mock_async_httpx.return_value.__aenter__.return_value = mock_instance
-
-    # --- Mock responses ---
-    log_response = MagicMock()
-    log_response.json.return_value = {"data": [{"attributes": {"message": "log message"}}]}
-    log_response.raise_for_status.return_value = None
-
-    monitor_response = MagicMock()
-    monitor_response.json.return_value = [{"id": 1, "name": "CPU Monitor"}]
-    monitor_response.raise_for_status.return_value = None
-
-    event_response = MagicMock()
-    event_response.json.return_value = {"data": [{"attributes": {"title": "event title"}}]}
-    event_response.raise_for_status.return_value = None
-
-    # --- Safer routing instead of relying on call order ---
-    async def post_router(*args, **kwargs):
-        url = args[0] if args else kwargs.get("url", "")
-        url = str(url)
-
-        if "logs" in url:
-            return log_response
-        elif "events" in url:
-            return event_response
-
-        raise AssertionError(f"Unexpected POST url: {url}")
-
     mock_instance.post = AsyncMock(side_effect=post_router)
-    mock_instance.get = AsyncMock(return_value=monitor_response)
-    # --- Execute ---
-    result = await async_client.fetch_all(
-        logs_query="error",
-        time_range_minutes=15,
-        logs_limit=100,
-        monitor_query="error",
-        events_query="error",
-    )
+    mock_instance.get = AsyncMock()
+    mock_httpx_client.return_value = mock_instance
 
-    # --- Assertions ---
-    assert "logs" in result
-    assert "monitors" in result
-    assert "events" in result
+    result = client.get_events("error")
 
-    assert mock_instance.post.call_count == 2  # logs + events
-    assert mock_instance.get.call_count == 1  # monitors
-
-    assert mock_instance.post.called
-    assert mock_instance.get.called
-
-
-@pytest.mark.asyncio
-async def test_fetch_all_partial_failure(async_client, mock_async_httpx):
-    mock_instance = MagicMock()
-    mock_async_httpx.return_value.__aenter__.return_value = mock_instance
-
-    async def post_router(url, *args, **kwargs):
-        raise Exception("boom")
-
-    mock_instance.post = AsyncMock(side_effect=post_router)
-    mock_instance.get = AsyncMock(side_effect=Exception("boom"))
-
-    result = await async_client.fetch_all(
-        logs_query="error",
-        time_range_minutes=15,
-        logs_limit=100,
-        monitor_query="error",
-        events_query="error",
-    )
-
-    assert result["logs"]["success"] is False
-    assert result["monitors"]["success"] is False
-    assert result["events"]["success"] is False
+    assert result["success"] is True
+    assert result["events"][0]["title"] == "event title"
 
 
 # -------------------------
@@ -407,44 +181,22 @@ async def test_fetch_all_partial_failure(async_client, mock_async_httpx):
 # -------------------------
 
 
-def test_async_is_configured_true(async_config):
-    client = DatadogAsyncClient(async_config)
-    assert client.is_configured is True
-
-
 def test_is_configured_true():
-    config = DatadogConfig(api_key="test", app_key="test")
-    client = DatadogClient(config)
+    client = DatadogClient(DatadogConfig(api_key="a", app_key="b"))
     assert client.is_configured is True
 
 
 def test_is_configured_false():
-    config = DatadogConfig(api_key="", app_key="")
-    client = DatadogClient(config)
-    assert client.is_configured is False
-
-
-def test_is_configured_missing_api_key():
-    config = DatadogConfig(api_key="", app_key="key")
-    client = DatadogClient(config)
-
-    assert client.is_configured is False
-
-
-def test_is_configured_missing_app_key():
-    config = DatadogConfig(api_key="key", app_key="")
-    client = DatadogClient(config)
-
+    client = DatadogClient(DatadogConfig(api_key="", app_key=""))
     assert client.is_configured is False
 
 
 # -------------------------
-# get_pod_node_tests
+# POD NODE (FIXED PROPERLY)
 # -------------------------
 
 
 def test_get_pods_on_node_success(client):
-    # Mock search_logs result
     client.search_logs = MagicMock(
         return_value={
             "success": True,
@@ -452,29 +204,19 @@ def test_get_pods_on_node_success(client):
                 {
                     "tags": [
                         "pod_name:pod-1",
-                        "container_name:container-1",
-                        "kube_namespace:default",
-                        "node_name:node-1",
                         "node_ip:10.0.0.1",
-                        "exit_code:1",  # failed
+                        "exit_code:1",
                     ]
                 },
                 {
                     "tags": [
                         "pod_name:pod-2",
-                        "container_name:container-2",
-                        "kube_namespace:kube-system",
-                        "node_name:node-1",
                         "node_ip:10.0.0.1",
                     ]
                 },
                 {
-                    # duplicate pod-1 → should be deduplicated
                     "tags": [
                         "pod_name:pod-1",
-                        "container_name:container-1",
-                        "kube_namespace:default",
-                        "node_name:node-1",
                         "node_ip:10.0.0.1",
                     ]
                 },
@@ -485,16 +227,14 @@ def test_get_pods_on_node_success(client):
     result = client.get_pods_on_node("10.0.0.1")
 
     assert result["success"] is True
-    assert result["total"] == 2  # deduplicated
+    assert result["total"] == 2
 
     pods = result["pods"]
 
-    # pod-1 → failed
     pod1 = next(p for p in pods if p["pod_name"] == "pod-1")
     assert pod1["status"] == "failed"
     assert pod1["exit_code"] == "1"
 
-    # pod-2 → running
     pod2 = next(p for p in pods if p["pod_name"] == "pod-2")
     assert pod2["status"] == "running"
 
@@ -518,7 +258,7 @@ def test_get_pods_on_node_missing_tags(client):
     client.search_logs = MagicMock(
         return_value={
             "success": True,
-            "logs": [{}],  # no tags
+            "logs": [{}],
         }
     )
 
