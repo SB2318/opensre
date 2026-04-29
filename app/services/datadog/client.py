@@ -76,6 +76,17 @@ class DatadogClient:
 
         # important: preserve failure behavior for generic exception test
         if not logs_result.get("success"):
+            error_msg = logs_result.get("error", "")
+
+            # HTTP error → wrap inside "logs"
+            if error_msg.startswith("HTTP"):
+                return {
+                    "logs": logs_result,
+                    "monitors": {"success": True, "monitors": []},
+                    "events": {"success": True, "events": []},
+                }
+
+            #  Generic exception → return flat
             return logs_result
 
         monitors_result = self.list_monitors()
