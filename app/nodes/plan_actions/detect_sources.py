@@ -15,15 +15,9 @@ from app.integrations.opensre.csv_grafana_backend import OpenSRECsvGrafanaBacken
 from app.integrations.opensre.inject import inject_opensre_into_resolved_integrations
 from app.services.coralogix import build_coralogix_logs_query
 from app.tools.GrafanaLogsTool import _map_pipeline_to_service_name
+from app.utils.coercion import safe_int
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_int(value: Any, default: int) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def _alert_time_range_minutes(raw_alert: dict[str, Any]) -> int:
@@ -778,7 +772,7 @@ def detect_sources(
                     bitbucket_int.get("base_url", "https://api.bitbucket.org/2.0")
                 ).strip()
                 or "https://api.bitbucket.org/2.0",
-                "max_results": _safe_int(bitbucket_int.get("max_results", 25), 25),
+                "max_results": safe_int(bitbucket_int.get("max_results", 25), 25),
                 "integration_id": str(bitbucket_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -802,7 +796,7 @@ def detect_sources(
                     or raw_alert.get("error_message", "")
                     or raw_alert.get("alert_name", "")
                 ).strip(),
-                "max_results": _safe_int(snowflake_int.get("max_results", 50), 50),
+                "max_results": safe_int(snowflake_int.get("max_results", 50), 50),
                 "integration_id": str(snowflake_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -824,7 +818,7 @@ def detect_sources(
                     or raw_alert.get("alert_name", "")
                 ).strip(),
                 "time_range_minutes": alert_time_range_minutes,
-                "max_results": _safe_int(azure_int.get("max_results", 100), 100),
+                "max_results": safe_int(azure_int.get("max_results", 100), 100),
                 "integration_id": str(azure_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -851,7 +845,7 @@ def detect_sources(
                 "username": username,
                 "password": password,
                 "time_range_minutes": alert_time_range_minutes,
-                "max_results": _safe_int(openobserve_int.get("max_results", 100), 100),
+                "max_results": safe_int(openobserve_int.get("max_results", 100), 100),
                 "integration_id": str(openobserve_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -877,7 +871,7 @@ def detect_sources(
                 or "*",
                 "default_query": default_query or "*",
                 "time_range_minutes": alert_time_range_minutes,
-                "max_results": _safe_int(opensearch_int.get("max_results", 100), 100),
+                "max_results": safe_int(opensearch_int.get("max_results", 100), 100),
                 "integration_id": str(opensearch_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
