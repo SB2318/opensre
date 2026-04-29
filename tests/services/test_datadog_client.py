@@ -60,11 +60,6 @@ def test_search_logs_empty_data(client, mock_httpx_client):
         raise_for_status=MagicMock(),
     )
 
-    mock_instance.get.return_value = MagicMock(
-        json=lambda: [],
-        raise_for_status=MagicMock(),
-    )
-
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
@@ -83,8 +78,6 @@ def test_search_logs_http_error(client, mock_httpx_client):
         response=mock_response,
     )
 
-    mock_instance.get.return_value = MagicMock()
-
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
@@ -95,7 +88,6 @@ def test_search_logs_generic_exception(client, mock_httpx_client):
     mock_instance = MagicMock()
 
     mock_instance.post.side_effect = Exception("unexpected error")
-    mock_instance.get.return_value = MagicMock()
 
     mock_httpx_client.return_value = mock_instance
 
