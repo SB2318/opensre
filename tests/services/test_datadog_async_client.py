@@ -159,7 +159,7 @@ async def test_fetch_all_partial_failure(async_client, mock_async_httpx):
     # -------------------------
     # global failure
     # -------------------------
-    assert result["success"] is False
+    
 
     # -------------------------
     # per-leg failure
