@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -38,25 +38,16 @@ def mock_httpx_client():
 def test_search_logs_success(client, mock_httpx_client):
     mock_instance = MagicMock()
 
-    async def post_router(*args, **kwargs):
-        return MagicMock(
-            json=lambda: {
-                "data": [
-                    {
-                        "attributes": {
-                            "message": "log message",
-                        }
-                    }
-                ]
-            },
-            raise_for_status=lambda: None,
-        )
+    mock_instance.post.return_value = MagicMock(
+        json=lambda: {"data": [{"attributes": {"message": "log message"}}]},
+        raise_for_status=MagicMock(),
+    )
 
-    async def get_router(*args, **kwargs):
-        return MagicMock(json=lambda: [{"name": "CPU Monitor"}], raise_for_status=lambda: None)
+    mock_instance.get.return_value = MagicMock(
+        json=lambda: [{"name": "CPU Monitor"}],
+        raise_for_status=MagicMock(),
+    )
 
-    mock_instance.post = AsyncMock(side_effect=post_router)
-    mock_instance.get = AsyncMock(side_effect=get_router)
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
@@ -65,7 +56,6 @@ def test_search_logs_success(client, mock_httpx_client):
     assert "monitors" in result
     assert "events" in result
 
-    # REQUIRED per review
     assert result["logs"]["success"] is True
     assert result["monitors"]["success"] is True
     assert result["events"]["success"] is True
@@ -77,21 +67,22 @@ def test_search_logs_success(client, mock_httpx_client):
 def test_search_logs_empty_data(client, mock_httpx_client):
     mock_instance = MagicMock()
 
-    async def post_router(*args, **kwargs):
-        return MagicMock(json=lambda: {"data": []}, raise_for_status=lambda: None)
+    mock_instance.post.return_value = MagicMock(
+        json=lambda: {"data": []},
+        raise_for_status=MagicMock(),
+    )
 
-    async def get_router(*args, **kwargs):
-        return MagicMock(json=lambda: [], raise_for_status=lambda: None)
+    mock_instance.get.return_value = MagicMock(
+        json=lambda: [],
+        raise_for_status=MagicMock(),
+    )
 
-    mock_instance.post = AsyncMock(side_effect=post_router)
-    mock_instance.get = AsyncMock(side_effect=get_router)
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
 
     assert result["logs"]["success"] is True
     assert result["logs"]["logs"] == []
-
     assert result["monitors"]["success"] is True
     assert result["events"]["success"] is True
 
@@ -99,15 +90,16 @@ def test_search_logs_empty_data(client, mock_httpx_client):
 def test_search_logs_http_error(client, mock_httpx_client):
     mock_instance = MagicMock()
 
-    async def post_router(*args, **kwargs):
-        raise httpx.HTTPStatusError(
-            "error",
-            request=MagicMock(),
-            response=MagicMock(status_code=500, text="server error"),
-        )
+    mock_response = MagicMock(status_code=500, text="server error")
 
-    mock_instance.post = AsyncMock(side_effect=post_router)
-    mock_instance.get = AsyncMock()
+    mock_instance.post.side_effect = httpx.HTTPStatusError(
+        "error",
+        request=MagicMock(),
+        response=mock_response,
+    )
+
+    mock_instance.get.return_value = MagicMock()
+
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
@@ -119,8 +111,9 @@ def test_search_logs_http_error(client, mock_httpx_client):
 def test_search_logs_generic_exception(client, mock_httpx_client):
     mock_instance = MagicMock()
 
-    mock_instance.post = AsyncMock(side_effect=Exception("unexpected error"))
-    mock_instance.get = AsyncMock()
+    mock_instance.post.side_effect = Exception("unexpected error")
+    mock_instance.get.return_value = MagicMock()
+
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
@@ -137,11 +130,13 @@ def test_search_logs_generic_exception(client, mock_httpx_client):
 def test_list_monitors_success(client, mock_httpx_client):
     mock_instance = MagicMock()
 
-    async def get_router(*args, **kwargs):
-        return MagicMock(json=lambda: [{"name": "CPU Monitor"}], raise_for_status=lambda: None)
+    mock_instance.get.return_value = MagicMock(
+        json=lambda: [{"name": "CPU Monitor"}],
+        raise_for_status=MagicMock(),
+    )
 
-    mock_instance.get = AsyncMock(side_effect=get_router)
-    mock_instance.post = AsyncMock()
+    mock_instance.post.return_value = MagicMock()
+
     mock_httpx_client.return_value = mock_instance
 
     result = client.list_monitors()
@@ -158,14 +153,13 @@ def test_list_monitors_success(client, mock_httpx_client):
 def test_get_events_success(client, mock_httpx_client):
     mock_instance = MagicMock()
 
-    async def post_router(*args, **kwargs):
-        return MagicMock(
-            json=lambda: {"data": [{"attributes": {"title": "event title"}}]},
-            raise_for_status=lambda: None,
-        )
+    mock_instance.post.return_value = MagicMock(
+        json=lambda: {"data": [{"attributes": {"title": "event title"}}]},
+        raise_for_status=MagicMock(),
+    )
 
-    mock_instance.post = AsyncMock(side_effect=post_router)
-    mock_instance.get = AsyncMock()
+    mock_instance.get.return_value = MagicMock()
+
     mock_httpx_client.return_value = mock_instance
 
     result = client.get_events("error")
@@ -190,7 +184,7 @@ def test_is_configured_false():
 
 
 # -------------------------
-# POD NODE (FIXED PROPERLY)
+# POD NODE
 # -------------------------
 
 
@@ -227,13 +221,11 @@ def test_get_pods_on_node_success(client):
     assert result["success"] is True
     assert result["total"] == 2
 
-    pods = result["pods"]
-
-    pod1 = next(p for p in pods if p["pod_name"] == "pod-1")
+    pod1 = next(p for p in result["pods"] if p["pod_name"] == "pod-1")
     assert pod1["status"] == "failed"
     assert pod1["exit_code"] == "1"
 
-    pod2 = next(p for p in pods if p["pod_name"] == "pod-2")
+    pod2 = next(p for p in result["pods"] if p["pod_name"] == "pod-2")
     assert pod2["status"] == "running"
 
 
