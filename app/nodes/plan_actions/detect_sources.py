@@ -15,15 +15,9 @@ from app.integrations.opensre.csv_grafana_backend import OpenSRECsvGrafanaBacken
 from app.integrations.opensre.inject import inject_opensre_into_resolved_integrations
 from app.services.coralogix import build_coralogix_logs_query
 from app.tools.GrafanaLogsTool import _map_pipeline_to_service_name
+from app.utils.coercion import safe_int
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_int(value: Any, default: int) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def _alert_time_range_minutes(raw_alert: dict[str, Any]) -> int:
@@ -714,6 +708,12 @@ def detect_sources(
                 "role_arn": _eks_int.get("role_arn", ""),
                 "external_id": _eks_int.get("external_id", ""),
                 "cluster_names": _eks_int.get("cluster_names", []),
+                # Forward stored AWS integration credentials so build_k8s_clients
+                # can use them explicitly instead of silently missing them when
+                # the AWS integration is configured with IAM user credentials
+                # (access_key_id + secret_access_key, no role_arn). Follow-up
+                # to #724 (stored-integration credential forwarding).
+                "credentials": _eks_int.get("credentials") or None,
             }
             if _has_injected_eks_backend:
                 # Backend-only path: only fixture-aware EKS tools should activate,
@@ -772,7 +772,7 @@ def detect_sources(
                     bitbucket_int.get("base_url", "https://api.bitbucket.org/2.0")
                 ).strip()
                 or "https://api.bitbucket.org/2.0",
-                "max_results": _safe_int(bitbucket_int.get("max_results", 25), 25),
+                "max_results": safe_int(bitbucket_int.get("max_results", 25), 25),
                 "integration_id": str(bitbucket_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -796,7 +796,7 @@ def detect_sources(
                     or raw_alert.get("error_message", "")
                     or raw_alert.get("alert_name", "")
                 ).strip(),
-                "max_results": _safe_int(snowflake_int.get("max_results", 50), 50),
+                "max_results": safe_int(snowflake_int.get("max_results", 50), 50),
                 "integration_id": str(snowflake_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -818,7 +818,7 @@ def detect_sources(
                     or raw_alert.get("alert_name", "")
                 ).strip(),
                 "time_range_minutes": alert_time_range_minutes,
-                "max_results": _safe_int(azure_int.get("max_results", 100), 100),
+                "max_results": safe_int(azure_int.get("max_results", 100), 100),
                 "integration_id": str(azure_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -845,7 +845,7 @@ def detect_sources(
                 "username": username,
                 "password": password,
                 "time_range_minutes": alert_time_range_minutes,
-                "max_results": _safe_int(openobserve_int.get("max_results", 100), 100),
+                "max_results": safe_int(openobserve_int.get("max_results", 100), 100),
                 "integration_id": str(openobserve_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
@@ -871,7 +871,7 @@ def detect_sources(
                 or "*",
                 "default_query": default_query or "*",
                 "time_range_minutes": alert_time_range_minutes,
-                "max_results": _safe_int(opensearch_int.get("max_results", 100), 100),
+                "max_results": safe_int(opensearch_int.get("max_results", 100), 100),
                 "integration_id": str(opensearch_int.get("integration_id", "")).strip(),
                 "connection_verified": True,
             }
