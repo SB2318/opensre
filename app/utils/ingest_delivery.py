@@ -152,13 +152,12 @@ def create_investigation_and_attach_url(
     summary: str | None,
 ) -> tuple[str | None, str | None]:
     """
-    Create an investigation via ingest, then attach investigation_url if available.
+    Create an investigation via ingest, then attach investigation_url.
 
     Returns:
         (investigation_id, investigation_url)
     """
     investigation_id: str | None = None
-    investigation_url: str | None = None
 
     # First ingest: create investigation
     try:
@@ -171,13 +170,14 @@ def create_investigation_and_attach_url(
     except Exception as exc:  # noqa: BLE001
         logger.warning("[publish] ingest failed: %s", exc)
 
-    if investigation_id:
-        investigation_url = get_investigation_url(
-            state.get("organization_slug"),
-            investigation_id,
-        )
+    # Always compute URL (fallbacks to investigations list page when ID is None)
+    investigation_url = get_investigation_url(
+        state.get("organization_slug"),
+        investigation_id,
+    )
 
-        # Second ingest: attach URL
+    # Second ingest: attach URL only if investigation was created
+    if investigation_id:
         try:
             state_with_url = {
                 **state,
