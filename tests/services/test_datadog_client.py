@@ -46,6 +46,7 @@ def test_search_logs_success(client, mock_httpx_client):
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
+    mock_instance.post.assert_called_once()
 
     assert "logs" in result
     assert result["success"] is True
@@ -63,6 +64,8 @@ def test_search_logs_empty_data(client, mock_httpx_client):
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
+
+    mock_instance.post.assert_called_once()
 
     assert result["success"] is True
     assert result["logs"] == []
@@ -87,7 +90,7 @@ def test_search_logs_http_error(client, mock_httpx_client):
     mock_instance.post.return_value = mock_response
 
     result = client.search_logs("error")
-
+    mock_instance.post.assert_called_once()
     assert result["success"] is False
     assert "HTTP 500" in result["error"]
 
@@ -100,6 +103,7 @@ def test_search_logs_generic_exception(client, mock_httpx_client):
     mock_httpx_client.return_value = mock_instance
 
     result = client.search_logs("error")
+    mock_instance.post.assert_called_once()
 
     assert result["success"] is False
     assert result["error"] == "unexpected error"
@@ -121,6 +125,7 @@ def test_list_monitors_success(client, mock_httpx_client):
     mock_httpx_client.return_value = mock_instance
 
     result = client.list_monitors()
+    mock_instance.get.assert_called_once()
 
     assert result["success"] is True
     assert result["monitors"][0]["name"] == "CPU Monitor"
@@ -137,6 +142,7 @@ def test_list_monitors_empty(client, mock_httpx_client):
 
     result = client.list_monitors()
 
+    mock_instance.get.assert_called_once()
     assert result["success"] is True
     assert result["monitors"] == []
     assert result["total"] == 0
@@ -160,7 +166,7 @@ def test_list_monitors_http_error(client, mock_httpx_client):
     mock_instance.get.return_value = mock_response
 
     result = client.list_monitors()
-
+    mock_instance.get.assert_called_once()
     assert result["success"] is False
     assert "HTTP 403" in result["error"]
 
@@ -172,6 +178,7 @@ def test_list_monitors_generic_exception(client, mock_httpx_client):
     mock_instance.get.side_effect = Exception("boom")
 
     result = client.list_monitors()
+    mock_instance.get.assert_called_once()
 
     assert result["success"] is False
     assert result["error"] == "boom"
@@ -193,6 +200,7 @@ def test_get_events_success(client, mock_httpx_client):
     mock_httpx_client.return_value = mock_instance
 
     result = client.get_events("error")
+    mock_instance.post.assert_called_once()
 
     assert result["success"] is True
     assert result["events"][0]["title"] == "event title"
@@ -209,6 +217,7 @@ def test_get_events_empty(client, mock_httpx_client):
 
     result = client.get_events()
 
+    mock_instance.post.assert_called_once()
     assert result["success"] is True
     assert result["events"] == []
     assert result["total"] == 0
@@ -233,6 +242,7 @@ def test_get_events_http_error(client, mock_httpx_client):
 
     result = client.get_events("error")
 
+    mock_instance.post.assert_called_once()
     assert result["success"] is False
     assert "HTTP 500" in result["error"]
 
@@ -245,6 +255,7 @@ def test_get_events_generic_exception(client, mock_httpx_client):
 
     result = client.get_events("error")
 
+    mock_instance.post.assert_called_once()
     assert result["success"] is False
     assert result["error"] == "timeout"
 

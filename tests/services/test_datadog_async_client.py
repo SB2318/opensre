@@ -31,7 +31,7 @@ def mock_async_httpx():
 
 
 # -------------------------
-# success test (FIXED)
+# success test
 # -------------------------
 
 
@@ -106,7 +106,7 @@ async def test_fetch_all_success_strong(async_client, mock_async_httpx):
 
 
 # -------------------------
-# partial failure (FIXED LOGIC)
+# partial failure
 # -------------------------
 
 
@@ -163,8 +163,17 @@ async def test_fetch_all_http_error(async_client, mock_async_httpx):
         events_query="error",
     )
 
+    # logs
     assert result["logs"]["success"] is False
     assert "HTTP 401" in result["logs"]["error"]
+
+    # monitors
+    assert result["monitors"]["success"] is False
+    assert "HTTP 401" in result["monitors"]["error"]
+
+    # events
+    assert result["events"]["success"] is False
+    assert "HTTP 401" in result["events"]["error"]
 
 
 # -------------------------
