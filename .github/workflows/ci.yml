@@ -1,7 +1,6 @@
 name: CI
 
-# PR: no paths filter so `labeled` / `unlabeled` (e.g. ci:windows) still trigger runs.
-# Push to main stays path-filtered to avoid noise.
+# Default CI remains path-scoped for pull_request and push events.
 on:
   push:
     branches: [main]
@@ -32,7 +31,7 @@ concurrency:
 
 # ---------------------------------------------------------------
 # MATRIX: Ubuntu-only default matrix for push and pull_request in this workflow.
-# Optional label-driven checks (windows + ci:k8s) run in `.github/workflows/ci-labels.yml`.
+# Optional label-driven Windows checks live in `ci-labels-windows.yml` (`ci:windows`).
 # Kubernetes local tests here run on push to main or PR titles containing k8s/kubernetes.
 # ---------------------------------------------------------------
 jobs:
