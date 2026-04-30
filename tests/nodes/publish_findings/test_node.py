@@ -94,7 +94,7 @@ def _patch_generate_report_deps(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda _msg: None,
     )
     monkeypatch.setattr(
-        "app.nodes.publish_findings.node.send_ingest",
+        "app.utils.ingest_delivery.send_ingest",
         lambda _state: "inv-id-123",
     )
 
