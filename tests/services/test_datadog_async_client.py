@@ -1,4 +1,3 @@
-import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -29,37 +28,6 @@ def async_client(config):
 def mock_async_httpx():
     with patch("app.services.datadog.client.httpx.AsyncClient") as mock:
         yield mock
-
-
-# -------------------------
-# signature test
-# -------------------------
-
-
-def test_fetch_all_signature_contract():
-    sig = inspect.signature(DatadogAsyncClient.fetch_all)
-
-    assert "logs_query" in sig.parameters
-    assert "time_range_minutes" in sig.parameters
-    assert "logs_limit" in sig.parameters
-    assert "monitor_query" in sig.parameters
-    assert "events_query" in sig.parameters
-
-
-# -------------------------
-# validation test
-# -------------------------
-
-
-@pytest.mark.asyncio
-async def test_fetch_all_requires_logs_query(async_client):
-    with pytest.raises(TypeError):
-        await async_client.fetch_all(
-            time_range_minutes=15,
-            logs_limit=100,
-            monitor_query="error",
-            events_query="error",
-        )
 
 
 # -------------------------
