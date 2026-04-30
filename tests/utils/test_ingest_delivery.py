@@ -25,6 +25,15 @@ importlib.import_module("app.nodes")
 from app.utils import ingest_delivery
 
 
+@pytest.fixture
+def sample_state() -> dict[str, Any]:
+    return {
+        "organization_slug": "test-org",
+        "raw_alert": {},
+        "slack_context": {},
+    }
+
+
 def _mock_response(
     status_code: int = 200,
     json_body: Any = None,
