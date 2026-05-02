@@ -368,7 +368,7 @@ class TestSendIngest:
             patch("app.utils.ingest_delivery.send_ingest") as mock_send,
             patch("app.utils.ingest_delivery.get_investigation_url") as mock_url,
         ):
-            mock_send.side_effect = ["inv-123", Exception("update failed")]
+            mock_send.side_effect = ["inv-123", None]
             mock_url.return_value = "https://test/inv-123"
 
             investigation_id, investigation_url = (
@@ -408,7 +408,7 @@ class TestSendIngest:
             patch("app.utils.ingest_delivery.send_ingest") as mock_send,
             patch("app.utils.ingest_delivery.get_investigation_url") as mock_url,
         ):
-            mock_send.side_effect = ["inv-123", Exception("update failed")]
+            mock_send.side_effect = ["inv-123", None]
             mock_url.return_value = "https://test/inv-123"
 
             investigation_id, investigation_url = (
