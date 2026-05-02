@@ -29,33 +29,29 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": [
-              "index",
-              "showcase",
-              "features"
-            ]
+            "pages": ["index", "showcase", "features"]
           },
           {
             "group": "First steps",
-            "pages": [
-              "quickstart",
-              "faq"
-            ]
+            "pages": ["quickstart", "deployment", "faq"]
           }
         ]
       },
       {
-        "tab": "Install",
+        "tab": "Installation",
         "icon": "download",
         "groups": [
           {
-            "group": "Investigation workflow",
-            "pages": [
-              "investigation-overview",
-              "remote-runtime-investigation",
-              "masking",
-              "multi-instance-integrations"
-            ]
+            "group": "Overview",
+            "pages": ["install"]
+          },
+          {
+            "group": "Local",
+            "pages": ["install-local"]
+          },
+          {
+            "group": "Enterprise",
+            "pages": ["install-enterprise"]
           }
         ]
       },
@@ -66,7 +62,10 @@
           {
             "group": "Overview",
             "pages": [
-              "integrations-overview"
+              "integrations-overview",
+              "remote-runtime-investigation",
+              "masking",
+              "multi-instance-integrations"
             ]
           },
           {
@@ -81,7 +80,8 @@
               "grafana",
               "honeycomb",
               "opsgenie",
-              "sentry"
+              "sentry",
+              "splunk"
             ]
           },
           {
@@ -123,7 +123,8 @@
             "group": "Getting started",
             "pages": [
               "introduction-monitoring",
-              "quickstart-monitoring"
+              "quickstart-monitoring",
+              "tracer-faq"
             ]
           },
           {
@@ -238,9 +239,7 @@
         "groups": [
           {
             "group": "Daily updates",
-            "pages": [
-              "daily-updates/overview"
-            ]
+            "pages": ["daily-updates/overview"]
           }
         ]
       }
@@ -301,6 +300,6 @@
   },
   "logo": {
     "light": "/images/opensre-logo-black.svg",
-    "dark": "/images/opensre-logo-black.svg"
+    "dark": "/images/opensre-logo-white.svg"
   }
 }
