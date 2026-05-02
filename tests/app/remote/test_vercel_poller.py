@@ -340,3 +340,76 @@ def test_collect_vercel_candidates_raises_on_api_error_when_requested(monkeypatc
 
     with pytest.raises(VercelResolutionError, match="Failed to list Vercel projects"):
         collect_vercel_candidates(fail_on_error=True)
+
+
+def test_parse_vercel_url_extracts_log_id() -> None:
+    parsed = parse_vercel_url(
+        "https://vercel.com/vincenthus-projects/tracer-marketing-website-v3/logs"
+        "?page=3&logId=54w4s-1775494460431-b04b1df81301"
+    )
+    assert parsed.selected_log_id == "54w4s-1775494460431-b04b1df81301"
+
+
+def test_parse_vercel_url_extracts_selected_log_id() -> None:
+    parsed = parse_vercel_url(
+        "https://vercel.com/vincenthus-projects/tracer-marketing-website-v3/logs"
+        "?page=3&selectedLog=54w4s-1775494460431-b04b1df81301"
+    )
+    assert parsed.selected_log_id == "54w4s-1775494460431-b04b1df81301"
+
+
+def test_parse_vercel_url_extracts_deployment_id_snake() -> None:
+    parsed = parse_vercel_url(
+        "https://vercel.com/vincenthus-projects/tracer-marketing-website-v3/logs"
+        "?page=3&deployment_id=54w4s-1775494460431-b04b1df81301"
+    )
+    assert parsed.deployment_id == "54w4s-1775494460431-b04b1df81301"
+
+
+def test_parse_vercel_url_extracts_deployment_id_camel() -> None:
+    parsed = parse_vercel_url(
+        "https://vercel.com/vincenthus-projects/tracer-marketing-website-v3/logs"
+        "?page=3&deploymentId=54w4s-1775494460431-b04b1df81301"
+    )
+    assert parsed.deployment_id == "54w4s-1775494460431-b04b1df81301"
+
+
+def test_parse_vercel_url_trims_whitespace_stores_cleaned_url() -> None:
+    parsed = parse_vercel_url(
+        "   https://vercel.com/vincenthus-projects/tracer-marketing-website-v3/logs?page=3&logId=54w4s-1775494460431-b04b1df81301   "
+    )
+
+    assert parsed.selected_log_id == "54w4s-1775494460431-b04b1df81301"
+    assert (
+        parsed.original_url
+        == "https://vercel.com/vincenthus-projects/tracer-marketing-website-v3/logs?page=3&logId=54w4s-1775494460431-b04b1df81301"
+    )
+
+
+def test_sort_deployment_stubs_handles_malformed_timestamps() -> None:
+    stubs = [
+        {"id": "old", "created_at": "2024-01-01T00:00:00Z"},
+        {"id": "new", "created_at": "2024-03-01T00:00:00Z"},
+        {"id": "missing_ts"},  # Missing created_at
+        {"id": "empty_ts", "created_at": ""},  # Empty string
+        {"id": "space_ts", "created_at": "   "},  # Whitespace
+    ]
+    ordered = _sort_deployment_stubs_newest_first(stubs)
+    ids = [s["id"] for s in ordered]
+
+    # 'new' should be first, 'old' second.
+    # Others are treated as 1970 and should be at the end.
+    assert ids[0] == "new"
+    assert ids[1] == "old"
+    assert set(ids[2:]) == {"missing_ts", "empty_ts", "space_ts"}
+
+
+def test_sort_deployment_stubs_filters_invalid_ids() -> None:
+    stubs = [
+        {"id": "valid", "created_at": "2024-01-01T00:00:00Z"},
+        {"created_at": "2024-01-01T00:00:00Z"},  # Missing id
+        {"id": "  ", "created_at": "2024-01-01T00:00:00Z"},  # Whitespace id
+    ]
+    ordered = _sort_deployment_stubs_newest_first(stubs)
+    assert len(ordered) == 1
+    assert ordered[0]["id"] == "valid"

@@ -24,6 +24,10 @@ _PROBE_CACHE_TTL_SEC = 45.0
 _SAFE_SUBPROCESS_ENV_KEYS = frozenset(
     {
         "HOME",
+        # macOS Keychain item lookup (where `claude login` stores OAuth on darwin)
+        # requires USER. LOGNAME is the POSIX/Linux equivalent kept for parity.
+        "USER",
+        "LOGNAME",
         "USERPROFILE",
         "APPDATA",
         "LOCALAPPDATA",
@@ -56,7 +60,7 @@ _SAFE_SUBPROCESS_ENV_KEYS = frozenset(
         "XDG_STATE_HOME",
     }
 )
-_SAFE_SUBPROCESS_ENV_PREFIXES = ("LC_", "CODEX_")
+_SAFE_SUBPROCESS_ENV_PREFIXES = ("LC_", "CODEX_", "CLAUDE_")
 
 
 def _strip_ansi(text: str) -> str:
@@ -179,6 +183,11 @@ class CLIBackedLLMClient:
 
         content = self._adapter.parse(stdout=out, stderr=err, returncode=proc.returncode)
         content = _strip_ansi(content).strip()
+        if err:
+            logger.debug(
+                "cli_llm_stderr",
+                extra={"provider": self._adapter.name, "stderr": err[:500]},
+            )
         logger.debug(
             "cli_llm_invoke",
             extra={"provider": self._adapter.name, "cli_cost_unknown": True},
