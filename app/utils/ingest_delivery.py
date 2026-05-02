@@ -156,21 +156,18 @@ def create_investigation_and_attach_url(
 
     Returns:
         (investigation_id, investigation_url)
+        investigation_url always falls back to investigations list page.
     """
-    investigation_id: str | None = None
+    state_with_report = {
+        **state,
+        "problem_report": {"report_md": slack_message},
+        "summary": summary,
+    }
 
     # First ingest: create investigation
-    try:
-        state_with_report = {
-            **state,
-            "problem_report": {"report_md": slack_message},
-            "summary": summary,
-        }
-        investigation_id = send_ingest(state_with_report)  # type: ignore[arg-type]
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[publish] ingest failed: %s", exc)
+    investigation_id = send_ingest(state_with_report)  # type: ignore[arg-type]
 
-    # Always compute URL (fallbacks to investigations list page when ID is None)
+    # Always compute URL (falls back to investigations list page when ID is None)
     investigation_url = get_investigation_url(
         state.get("organization_slug"),
         investigation_id,
@@ -178,17 +175,14 @@ def create_investigation_and_attach_url(
 
     # Second ingest: attach URL only if investigation was created
     if investigation_id:
-        try:
-            state_with_url = {
-                **state,
-                "problem_report": {
-                    "report_md": slack_message,
-                    "investigation_url": investigation_url,
-                },
-                "summary": summary,
-            }
-            send_ingest(state_with_url)  # type: ignore[arg-type]
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("[publish] ingest url update failed: %s", exc)
+        state_with_url = {
+            **state,
+            "problem_report": {
+                "report_md": slack_message,
+                "investigation_url": investigation_url,
+            },
+            "summary": summary,
+        }
+        send_ingest(state_with_url)  # type: ignore[arg-type]
 
     return investigation_id, investigation_url
