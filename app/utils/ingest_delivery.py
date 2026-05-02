@@ -150,7 +150,7 @@ def create_investigation_and_attach_url(
     state: InvestigationState,
     slack_message: str,
     summary: str | None,
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, str]:
     """
     Create an investigation via ingest, then attach investigation_url.
 
