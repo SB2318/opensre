@@ -198,7 +198,12 @@ class IncidentIoIntegrationConfig(StrictConfigModel):
     @classmethod
     def _normalize_region(cls, value: object) -> str:
         raw = str(value or "us").strip().lower()
-        return raw if raw in DEFAULT_INCIDENT_IO_BASE_URLS else "us"
+        if raw not in DEFAULT_INCIDENT_IO_BASE_URLS:
+            raise ValueError(
+                f"Unknown Incident.io region: {raw}. Supported regions: "
+                f"{', '.join(DEFAULT_INCIDENT_IO_BASE_URLS.keys())}"
+            )
+        return raw
 
     @model_validator(mode="after")
     def _resolve_base_url(self) -> IncidentIoIntegrationConfig:

@@ -171,6 +171,7 @@ class IncidentIoClient:
                 "reference": data.get("reference", ""),
                 "status": data.get("status", ""),
                 "severity": data.get("severity", {}).get("name", ""),
+                "summary": data.get("summary", ""),
                 "created_at": data.get("created_at", ""),
                 "updated_at": data.get("updated_at", ""),
                 "custom_fields": data.get("custom_field_entries", []),
@@ -196,22 +197,29 @@ class IncidentIoClient:
     def add_timeline_event(
         self, incident_id: str, title: str, description: str = ""
     ) -> dict[str, Any]:
-        """Add a custom event to an incident's timeline (findings write-back)."""
-
+        """Add findings to an incident (via summary update since direct timeline POST is restricted)."""
         try:
-            # Incident.io V2 API uses 'content' for the timeline event body.
-            # We combine title and description into a single markdown block.
-            content = f"### {title}"
-            if description:
-                content += f"\n\n{description}"
+            # Fetch existing incident to get the current summary
+            get_res = self.get_incident(incident_id)
+            if not get_res["success"]:
+                return get_res
+
+            incident_data = get_res["incident"]
+            current_summary = incident_data.get("summary") or ""
+
+            # Format the new finding as a markdown append
+            # Use a clear separator and bold title
+            timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+            new_finding = f"\n\n---\n**OpenSRE Finding: {title}** ({timestamp})\n{description}"
+            updated_summary = (current_summary + new_finding).strip()
 
             payload = {
-                "incident_id": incident_id,
-                "content": content,
-                "occurred_at": datetime.now(UTC).isoformat(timespec="milliseconds"),
+                "incident": {"summary": updated_summary},
+                "notify_incident_channel": False,
             }
+            # Use the action endpoint which is the standard way to edit incidents in V2
             resp = self._get_client().post(
-                "/v2/incident_timeline_events",
+                f"/v2/incidents/{incident_id}/actions/edit",
                 json=payload,
             )
             resp.raise_for_status()
