@@ -1,7 +1,6 @@
 """Contract tests for IncidentIoClient ensuring the write-back uses the correct v2 endpoints."""
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -27,7 +26,7 @@ def test_get_incident_includes_summary(client, monkeypatch):
     }
     mock_resp.raise_for_status.return_value = None
 
-    monkeypatch.setattr(httpx.Client, "get", lambda *args, **kwargs: mock_resp)
+    monkeypatch.setattr(httpx.Client, "get", lambda *_, **__: mock_resp)
 
     res = client.get_incident("inc-123")
     assert res["success"] is True
@@ -45,7 +44,7 @@ def test_add_timeline_event_contract(client, monkeypatch):
             "summary": "Existing summary.",
         }
     }
-    
+
     # 2. Mock the POST call to edit the incident
     mock_post_resp = MagicMock()
     mock_post_resp.status_code = 200
@@ -61,23 +60,27 @@ def test_add_timeline_event_contract(client, monkeypatch):
         return mock_post_resp
 
     monkeypatch.setattr(httpx.Client, "request", mock_request)
-    # httpx.Client.get/post call request internally in recent versions, 
+    # httpx.Client.get/post call request internally in recent versions,
     # but we'll mock them directly to be safe if needed.
-    monkeypatch.setattr(httpx.Client, "get", lambda self, url, **kwargs: mock_request("GET", url, **kwargs))
-    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **kwargs: mock_request("POST", url, **kwargs))
+    monkeypatch.setattr(
+        httpx.Client, "get", lambda _self, url, **kwargs: mock_request("GET", url, **kwargs)
+    )
+    monkeypatch.setattr(
+        httpx.Client, "post", lambda _self, url, **kwargs: mock_request("POST", url, **kwargs)
+    )
 
     res = client.add_timeline_event("inc-123", title="RCA Finding", description="Root cause found.")
-    
+
     assert res["success"] is True
-    
+
     # Verify POST call to the correct endpoint
     post_calls = [c for c in calls if c[0] == "POST"]
     assert len(post_calls) == 1
     method, url, kwargs = post_calls[0]
-    
+
     assert url == "/v2/incidents/inc-123/actions/edit"
     payload = kwargs["json"]
-    
+
     # Verify contract: incident.summary should contain both old and new content
     assert "Existing summary." in payload["incident"]["summary"]
     assert "OpenSRE Finding: RCA Finding" in payload["incident"]["summary"]
@@ -90,19 +93,21 @@ def test_add_timeline_event_failure_handling(client, monkeypatch):
     mock_get_resp = MagicMock()
     mock_get_resp.status_code = 200
     mock_get_resp.json.return_value = {"incident": {"summary": "..."}}
-    
+
     mock_post_resp = MagicMock()
     mock_post_resp.status_code = 404
     mock_post_resp.text = '{"error": "Not Found"}'
+
     # Ensure raise_for_status behaves like real httpx
     def raise_err():
         raise httpx.HTTPStatusError("404 Not Found", request=MagicMock(), response=mock_post_resp)
+
     mock_post_resp.raise_for_status.side_effect = raise_err
 
-    monkeypatch.setattr(httpx.Client, "get", lambda *args, **kwargs: mock_get_resp)
-    monkeypatch.setattr(httpx.Client, "post", lambda *args, **kwargs: mock_post_resp)
+    monkeypatch.setattr(httpx.Client, "get", lambda *_, **__: mock_get_resp)
+    monkeypatch.setattr(httpx.Client, "post", lambda *_, **__: mock_post_resp)
 
     res = client.add_timeline_event("inc-123", title="Title")
-    
+
     assert res["success"] is False
     assert "HTTP 404" in res["error"]
